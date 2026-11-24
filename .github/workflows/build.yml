@@ -1,0 +1,58 @@
+name: Build APK
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.10'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo6 cmake libffi-dev libssl-dev aidl
+
+    - name: Install Python dependencies
+      run: |
+        pip3 install --user buildozer cython virtualenv
+
+    - name: Force Fix SDK Manager and AIDL
+      run: |
+        CACHE_SDK=$HOME/.buildozer/android/platform/android-sdk
+        
+        # 1. Создаем структуру папок в кэше Buildozer
+        mkdir -p $CACHE_SDK/tools/bin
+        mkdir -p $CACHE_SDK/build-tools/37.0.0
+        mkdir -p $CACHE_SDK/platform-tools
+        mkdir -p $CACHE_SDK/licenses
+        
+        # 2. Копируем РАБОЧИЙ системный sdkmanager в кэш Buildozer
+        cp -r $ANDROID_HOME/cmdline-tools/latest/bin/* $CACHE_SDK/tools/bin/
+        cp -r $ANDROID_HOME/cmdline-tools/latest/lib $CACHE_SDK/tools/
+        
+        # 3. Копируем aidl
+        cp $(which aidl) $CACHE_SDK/build-tools/37.0.0/aidl
+        chmod +x $CACHE_SDK/build-tools/37.0.0/aidl
+        
+        # 4. Создаем заглушки лицензий
+        echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > $CACHE_SDK/licenses/android-sdk-license
+        echo "d56f5187479451eabf01fb78af6dfcb131a6481e" > $CACHE_SDK/licenses/android-sdk-preview-license
+        
+        # 5. Даем права
+        chmod +x $CACHE_SDK/tools/bin/sdkmanager
+
+    - name: Build with Buildozer
+      run: |
+        export PATH=$PATH:~/.local/bin
+        export AIDL=$(which aidl)
+        buildozer -v android debug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: FPE-APK
+        path: bin/*.apk
