@@ -1,0 +1,61 @@
+name: Build APK
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.10'
+
+    - name: Install system dependencies including AIDL
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo6 cmake libffi-dev libssl-dev aidl
+
+    - name: Install Python dependencies
+      run: |
+        pip3 install --user buildozer cython virtualenv
+
+    - name: Check and Force Create buildozer.spec
+      run: |
+        echo "--- Проверка файлов ---"
+        ls -la
+        if [ ! -f buildozer.spec ]; then
+          echo "ФАЙЛ НЕ НАЙДЕН! СОЗДАЕМ ВРУЧНУЮ..."
+          cat << 'EOF' > buildozer.spec
+        [app]
+        title = FPE Companion
+        package.name = fpecompanion
+        package.domain = org.dj
+        source.dir = .
+        source.include_exts = py,png,jpg,kv,atlas,gguf,txt
+        version = 1.0.0
+        requirements = python3,kivy
+        orientation = portrait
+        fullscreen = 0
+        android.permissions = RECORD_AUDIO
+        android.api = 30
+        android.minapi = 24
+        android.ndk = 25b
+        android.archs = arm64-v8a
+        [buildozer]
+        log_level = 2
+        warn_on_root = 1
+        EOF
+        fi
+
+    - name: Build with Buildozer
+      run: |
+        export PATH=$PATH:~/.local/bin
+        export AIDL=$(which aidl)
+        buildozer -v android debug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: FPE-APK
+        path: bin/*.apk
