@@ -1,0 +1,62 @@
+name: Build APK
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.10'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo6 cmake libffi-dev libssl-dev aidl
+
+    - name: Install Python dependencies
+      run: |
+        pip3 install --user buildozer cython virtualenv
+
+    - name: Download NDK manually
+      run: |
+        wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O ndk.zip
+        mkdir -p $HOME/.buildozer/android/platform
+        unzip -q ndk.zip -d $HOME/.buildozer/android/platform
+        ls -la $HOME/.buildozer/android/platform/android-ndk-r25b | head
+
+    - name: Force Fix SDK Manager, AIDL and API 30
+      run: |
+        CACHE_SDK=$HOME/.buildozer/android/platform/android-sdk
+        mkdir -p $CACHE_SDK/tools/bin
+        mkdir -p $CACHE_SDK/build-tools/37.0.0
+        mkdir -p $CACHE_SDK/platform-tools
+        mkdir -p $CACHE_SDK/platforms/android-30
+        mkdir -p $CACHE_SDK/licenses
+        
+        cp -r $ANDROID_HOME/cmdline-tools/latest/bin/* $CACHE_SDK/tools/bin/
+        cp -r $ANDROID_HOME/cmdline-tools/latest/lib $CACHE_SDK/tools/
+        cp $(which aidl) $CACHE_SDK/build-tools/37.0.0/aidl
+        chmod +x $CACHE_SDK/build-tools/37.0.0/aidl
+        
+        echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > $CACHE_SDK/licenses/android-sdk-license
+        echo "d56f5187479451eabf01fb78af6dfcb131a6481e" > $CACHE_SDK/licenses/android-sdk-preview-license
+        chmod +x $CACHE_SDK/tools/bin/sdkmanager
+        
+        # УСТАНАВЛИВАЕМ API 30 (Android 11)
+        echo "Установка Android API 30..."
+        yes | $CACHE_SDK/tools/bin/sdkmanager --sdk_root=$CACHE_SDK "platforms;android-30" "build-tools;30.0.3"
+
+    - name: Build with Buildozer
+      run: |
+        export PATH=$PATH:~/.local/bin
+        export AIDL=$(which aidl)
+        buildozer -v android debug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: FPE-APK
+        path: bin/*.apk
