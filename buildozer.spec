@@ -10,9 +10,8 @@ orientation = portrait
 fullscreen = 0
 android.permissions = RECORD_AUDIO
 android.api = 30
-android.minapi = 24
+android.minapi = 30
 android.ndk = 25b
-android.ndk_api = 24
 android.archs = arm64-v8a
 android.accept_sdk_license = True
 
