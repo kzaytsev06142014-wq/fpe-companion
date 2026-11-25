@@ -18,7 +18,9 @@ jobs:
 
     - name: Install Python dependencies
       run: |
-        pip3 install --user buildozer cython virtualenv
+        pip3 install --user buildozer
+        # Ставим проверенную версию Cython, чтобы kivy скомпилировался
+        pip3 install --user cython==0.29.36 virtualenv
 
     - name: Download NDK manually (r25b)
       run: |
@@ -45,7 +47,6 @@ jobs:
         chmod +x $CACHE_SDK/tools/bin/sdkmanager
         
         # УСТАНАВЛИВАЕМ API 30 (Android 11)
-        echo "Установка Android API 30..."
         yes | $CACHE_SDK/tools/bin/sdkmanager --sdk_root=$CACHE_SDK "platforms;android-30" "build-tools;30.0.3"
 
     - name: Build with Buildozer
